@@ -1,0 +1,199 @@
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+  id 'jacoco'
+}
+
+group = 'app.krista.extensions.krista.authentication'
+
+allprojects {
+  version = System.getenv("BRANCH")?.replace("/", "_") ?: "local"
+}
+/*
+* Use extension.name for archiveBaseName, extension.version for version.
+* Resulting jar: <extension.name>-<extension.version>.jar e.g. EmailAuthentication-3.5.7.jar
+*/
+def computedBaseName = "Email Authentication"
+def computedVersion = "local"
+
+tasks.register("setReleaseProperties") {
+  dependsOn("generateReleaseProperties")
+  doFirst {
+    def releasePropsFile = file("release.properties")
+    if (releasePropsFile.exists()) {
+      def props = new Properties()
+      releasePropsFile.withInputStream { stream -> props.load(stream) }
+      computedBaseName = (props['extension.name'] ?: computedBaseName).replaceAll(/\s+/, "-")
+      computedVersion = props['extension.version'] ?: computedVersion
+      project.ext.set("finalBaseName", computedBaseName)
+      project.version = computedVersion
+      println "✓ Loaded extension name = ${computedBaseName}, version = ${computedVersion}"
+
+    } else {
+      logger.warn("⚠ release.properties not found; using default values.")
+      project.ext.set("finalBaseName", computedBaseName)
+      project.version = computedVersion
+    }
+  }
+}
+
+java {
+  toolchain {
+    languageVersion.set(JavaLanguageVersion.of(21))
+  }
+}
+
+jacoco {
+  toolVersion = "0.8.12"
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.encoding = 'UTF-8'
+}
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url = System.properties['MAVEN_URL'] ?: 'https://repo.maven.apache.org/maven2'
+  }
+}
+
+import java.util.regex.Pattern
+
+tasks.register('generateReleaseProperties') {
+  group = 'build'
+  description = 'Generates release.properties file with extension version and domain information'
+  doLast {
+    def extensionFilePath = 'src/main/java/app/krista/extensions/krista/authentication/email_authentication/EmailAuthenticationExtension.java'
+    def AreaFilePath = 'src/main/java/app/krista/extensions/krista/authentication/email_authentication/EmailAuthenticationExtension.java'
+    def extensionFile = project.file(extensionFilePath)
+    def sheetAreaFile = project.file(AreaFilePath)
+    if (!extensionFile.exists()) {
+      throw new GradleException("Extension file not found: ${extensionFilePath}")
+    }
+    if (!sheetAreaFile.exists()) {
+      throw new GradleException("None of the area files found. At least one must exist.")
+    }
+    def properties = new Properties()
+    // Pre-compile the regex pattern for better performance
+    def keyValuePattern = Pattern.compile(/(\w+)\s*=\s*"([^"]+)"/)
+    // Extract Extension annotation information
+    extractAnnotationInfo(extensionFile, "@Extension", keyValuePattern) { key, value ->
+      if (key == "version") {
+        properties.setProperty("extension.version", value)
+        logger.lifecycle("Found extension version: ${value}")
+      } else if (key == "name") {
+        properties.setProperty("extension.name", value)
+        logger.lifecycle("Found extension name: ${value}")
+      }
+    }
+    // Set default extension name if not found
+    if (!properties.getProperty('extension.name')) {
+      properties.setProperty("extension.name", "Email Authentication")
+      logger.lifecycle("Set default extension name: Email Authentication")
+    }
+    // Try to extract Domain annotation information from all area files
+    def domainFound = false
+    def ecosystemFound = false
+    // Check each area file if it exists
+    [AreaFilePath].each { areaFilePath ->
+      def areaFile = project.file(areaFilePath)
+      if (areaFile.exists()) {
+        extractAnnotationInfo(areaFile, "@Domain", keyValuePattern) { key, value ->
+          if (key == "name" && !domainFound) {
+            properties.setProperty("domain.name", value)
+            logger.lifecycle("Found domain name: ${value} from ${areaFile.name}")
+            domainFound = true
+          } else if (key == "ecosystemName" && !ecosystemFound) {
+            properties.setProperty("ecosystem.name", value)
+            logger.lifecycle("Found ecosystem name: ${value} from ${areaFile.name}")
+            ecosystemFound = true
+          }
+        }
+      }
+    }
+
+    if (!properties.getProperty('extension.version')) {
+      throw new GradleException("Could not find extension version in ${extensionFilePath}")
+    }
+    // Set default values if not found in annotations
+
+    if (!properties.getProperty('domain.name')) {
+      properties.setProperty("domain.name", "CRM")
+      logger.lifecycle("Set default domain name: Spreadsheets")
+    }
+    if (!properties.getProperty('ecosystem.name')) {
+      properties.setProperty("ecosystem.name", "Customer Relations")
+      logger.lifecycle("Set default ecosystem name: Essentials")
+    }
+    def releasePropertiesFile = project.file('release.properties')
+    def content = properties.collect { key, value -> "${key}=${value}" }.join('\n')
+    releasePropertiesFile.text = content + '\n'
+    logger.lifecycle("Generated release.properties with content:\n${content}")
+  }
+}
+
+// Helper method to extract annotation information
+
+static def extractAnnotationInfo(File file, String annotationName, Pattern keyValuePattern, Closure processProperty) {
+  StringBuilder annotationText = new StringBuilder()
+  boolean inAnnotation = false
+  file.eachLine { line ->
+    line = line.trim()
+    if (line.contains(annotationName)) {
+      inAnnotation = true
+      annotationText.setLength(0) // Reset the buffer when starting a new annotation
+      annotationText.append(line)
+    } else if (inAnnotation) {
+      annotationText.append(line)
+    }
+    if (inAnnotation && line.contains(")")) {
+      inAnnotation = false
+      def matcher = keyValuePattern.matcher(annotationText.toString())
+      while (matcher.find()) {
+        def key = matcher.group(1)
+        def value = matcher.group(2)
+        processProperty.call(key, value)
+      }
+    }
+  }
+}
+
+tasks.named("jar") {
+  dependsOn tasks.named("generateReleaseProperties")
+}
+
+jar {
+  dependsOn tasks.named("setReleaseProperties")
+  dependsOn ':base-authentication:jar'
+
+  archiveBaseName = project.ext.has("finalBaseName") ? project.ext.finalBaseName : "email_authentication-extension"
+  description = 'email authenticator project, More details in readme'
+
+  from {
+    configurations.runtimeClasspath.collect {
+      it.isDirectory() ? it : zipTree(it)
+    }
+  }
+
+  exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+System.setProperty("extensionVersion", version as String)
+
+dependencies {
+  // Internal project dependencies
+  implementation project(':base-authentication')
+
+  // External dependencies
+  annotationProcessor 'app.krista:extension-impl-anno-processors:1.0.121-rc1'
+  implementation 'com.sun.mail:javax.mail:1.6.2'
+  implementation 'com.mchange:c3p0:0.9.5.5'
+  compileOnly 'org.glassfish.hk2:hk2-api:2.6.1'
+  compileOnly 'app.krista:krista-apis:1.0.121-rc1'
+
+  // Test dependencies
+  testImplementation 'com.kristasoft.common:common-test:1.0.52-rc1'
+}

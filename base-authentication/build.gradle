@@ -1,0 +1,37 @@
+plugins {
+  id 'java-library'
+}
+
+java {
+  toolchain {
+    languageVersion.set(JavaLanguageVersion.of(21))
+  }
+}
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url = System.properties['MAVEN_URL'] ?: 'https://repo.maven.apache.org/maven2'
+  }
+}
+
+jar {
+  archiveBaseName = "extension-common"
+  description = 'Krista Extension Common'
+
+  from {
+    configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+  }
+  exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+dependencies {
+  // External dependencies
+  compileOnly 'app.krista:krista-apis:1.0.121-rc1'
+  api 'com.opencsv:opencsv:5.9'
+
+  // Test dependencies
+  testImplementation 'com.kristasoft.common:common-test:1.0.52-rc1'
+}

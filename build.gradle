@@ -1,0 +1,35 @@
+// Root build file for krista-global-catalog multi-module project
+// This file configures common settings for all subprojects
+
+plugins {
+    id 'java'
+}
+
+// Apply common configuration to all subprojects
+subprojects {
+    apply plugin: 'java'
+    
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            url = System.properties['MAVEN_URL'] ?: 'https://packages.cicd.in.antbrains.com/artifactory/libs-release'
+        }
+    }
+    
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+}
+
+// Root project configuration
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+// Default task
+defaultTasks 'build'
+

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>krista</title>
+  <style>
+       #email, #sub{
+              margin: auto;
+              display: block;
+              margin-top: 20px;
+              }
+       #sub{
+              background-color: #009bf4;
+              border: none;
+              color: white;
+              padding: 15px 60px;
+              font-size: 16px;
+              cursor: pointer;
+              -webkit-transition-duration: 0.4s;
+              transition-duration: 0.4s;
+              box-shadow: 0 12px 16px 0 rgba(0,0,0,0.10),0 17px 50px 0 rgba(0,0,0,0.10);
+              border-radius: 25px;
+              }
+       #email{
+                text-indent: 10px;
+                margin-top: 10%;
+                width: 300px;
+                height: 40px;
+                border-radius: 5px;
+              }
+       h1{
+          margin-top: 10%;
+          }
+
+  </style>
+</head>
+<body>
+<center><h1>Krista Software</h1>
+  Please check your email '__email' for verification link.
+  <br>Please click and press 'Continue' button. <br><br>
+  <!-- Text that shows we are sending the email / have sent -->
+  <!-- buttons to "continue/verify", "cancel", or "resend" -->
+  <table>
+    <tr id = 'tablerow'>
+      <td id = 'tabledata1'
+          style = 'min-width: 75px; height: 58px;'>
+        <form method="get" onsubmit="/waiting">
+          <center>
+            <button id="continue">Continue</button>
+          </center>
+        </form>
+      </td>
+      <td id = 'tabledata2' style = 'min-width: 75px; height: 58px;'>
+        <form method="get" onsubmit="/destroy">
+          <center>
+            <button id="cancel">Cancel</button>
+          </center>
+        </form>
+      </td>
+      <td id = 'tabledata3' style = 'min-width: 75px; height: 58px;'>
+        <form method="get" onsubmit="/resend">
+          <center>
+            <button id="resend">Resend</button>
+          </center>
+        </form>
+      </td>
+
+    </tr>
+  </table>
+
+</center>
+</body>

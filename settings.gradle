@@ -1,0 +1,20 @@
+rootProject.name = 'krista-global-catalog'
+
+// Always include the base-authentication module when present
+if (file('base-authentication').isDirectory()) {
+    include 'base-authentication'
+}
+
+// Automatically include any other direct child modules (extensions) that
+// have their own build script. This lets extensions like demo-authentication
+// consume base-authentication without changing this settings.gradle.
+def excluded = ['base-authentication', '.gradle', '.idea', 'build', 'gradle']
+
+file('.').listFiles()
+        .findAll { it.isDirectory() && !excluded.contains(it.name) }
+        .findAll { new File(it, 'build.gradle').exists() || new File(it, 'build.gradle.kts').exists() }
+        .each { dir ->
+            include dir.name
+            project(":${dir.name}").projectDir = dir
+        }
+
